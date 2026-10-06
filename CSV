@@ -1,0 +1,246 @@
+import csv
+
+# ---------------------------------------------------
+# Step 1: Create sample training data CSV
+# ---------------------------------------------------
+
+data = [
+    ["Sky", "AirTemp", "Humidity", "Wind", "Water", "Forecast", "EnjoySport"],
+    ["Sunny", "Warm", "Normal", "Strong", "Warm", "Same", "Yes"],
+    ["Sunny", "Warm", "High", "Strong", "Warm", "Same", "Yes"],
+    ["Rainy", "Cold", "High", "Strong", "Warm", "Change", "No"],
+    ["Sunny", "Warm", "High", "Strong", "Cool", "Change", "Yes"]
+]
+
+with open("training_data.csv", "w", newline="") as f:
+    writer = csv.writer(f)
+    writer.writerows(data)
+
+print("CSV file created successfully.")
+
+
+# ---------------------------------------------------
+# Step 2: Candidate-Elimination Algorithm
+# ---------------------------------------------------
+
+def candidate_elimination(filename):
+
+    # Read CSV file
+    with open(filename, "r") as f:
+        reader = csv.reader(f)
+        data = list(reader)
+
+    # First row = attribute names
+    attributes = data[0][:-1]
+
+    # Remaining rows = training examples
+    examples = data[1:]
+
+    n = len(attributes)
+
+    # Most specific hypothesis
+    S = ["ϕ"] * n
+
+    # Most general hypothesis
+    G = [["?"] * n]
+
+    print("\nInitial Specific Boundary:")
+    print(S)
+
+    print("\nInitial General Boundary:")
+    print(G)
+
+    # Process each training example
+    for example in examples:
+
+        x = example[:-1]
+        target = example[-1]
+
+        print("\n----------------------------------------")
+        print("Example:", x)
+        print("Target:", target)
+
+        if target == "Yes":
+
+            # Remove inconsistent hypotheses from G
+            G = [g for g in G if covers(g, x)]
+
+            # Generalize S
+            for i in range(n):
+
+                if S[i] == "ϕ":
+                    S[i] = x[i]
+
+                elif S[i] != x[i]:
+                    S[i] = "?"
+
+            # Remove G hypotheses that are not
+            # more general than S
+            G = [g for g in G if more_general(g, S)]
+
+        else:  # Negative example
+
+            new_G = []
+
+            for g in G:
+
+                if covers(g, x):
+
+                    # Specialize G
+                    for i in range(n):
+
+                        if g[i] == "?":
+
+                            if S[i] != "ϕ" and S[i] != x[i]:
+
+                                new_hypothesis = g.copy()
+                                new_hypothesis[i] = S[i]
+
+                                new_G.append(new_hypothesis)
+
+                else:
+                    new_G.append(g)
+
+            G = remove_duplicates(new_G)
+
+            # Keep only hypotheses more general than S
+            G = [g for g in G if more_general(g, S)]
+
+        print("Specific Boundary S:")
+        print(S)
+
+        print("General Boundary G:")
+        for g in G:
+            print(g)
+
+    # Final result
+    print("\n========================================")
+    print("FINAL VERSION SPACE")
+    print("========================================")
+
+    print("\nSpecific Boundary (S):")
+    print(S)
+
+    print("\nGeneral Boundary (G):")
+    for g in G:
+        print(g)
+
+
+# ---------------------------------------------------
+# Helper function: Check whether hypothesis covers x
+# ---------------------------------------------------
+
+def covers(hypothesis, example):
+
+    for h, x in zip(hypothesis, example):
+
+        if h == "ϕ":
+            return False
+
+        if h != "?" and h != x:
+            return False
+
+    return True
+
+
+# ---------------------------------------------------
+# Helper function: Check if h1 is more general than h2
+# ---------------------------------------------------
+
+def more_general(h1, h2):
+
+    for a, b in zip(h1, h2):
+
+        if a == "?":
+            continue
+
+        if b == "ϕ":
+            continue
+
+        if a != b:
+            return False
+
+    return True
+
+
+# ---------------------------------------------------
+# Remove duplicate hypotheses
+# ---------------------------------------------------
+
+def remove_duplicates(hypotheses):
+
+    result = []
+
+    for h in hypotheses:
+
+        if h not in result:
+            result.append(h)
+
+    return result
+
+
+# ---------------------------------------------------
+# Step 3: Run Candidate-Elimination
+# ---------------------------------------------------
+
+candidate_elimination("training_data.csv")
+
+
+
+
+OUTPUT
+
+Initial Specific Boundary:
+['ϕ', 'ϕ', 'ϕ', 'ϕ', 'ϕ', 'ϕ']
+
+Initial General Boundary:
+[['?', '?', '?', '?', '?', '?']]
+
+----------------------------------------
+Example: ['Sunny', 'Warm', 'Normal', 'Strong', 'Warm', 'Same']
+Target: Yes
+Specific Boundary S:
+['Sunny', 'Warm', 'Normal', 'Strong', 'Warm', 'Same']
+General Boundary G:
+['?', '?', '?', '?', '?', '?']
+
+----------------------------------------
+Example: ['Sunny', 'Warm', 'High', 'Strong', 'Warm', 'Same']
+Target: Yes
+Specific Boundary S:
+['Sunny', 'Warm', '?', 'Strong', 'Warm', 'Same']
+General Boundary G:
+['?', '?', '?', '?', '?', '?']
+
+----------------------------------------
+Example: ['Rainy', 'Cold', 'High', 'Strong', 'Warm', 'Change']
+Target: No
+Specific Boundary S:
+['Sunny', 'Warm', '?', 'Strong', 'Warm', 'Same']
+General Boundary G:
+['Sunny', '?', '?', '?', '?', '?']
+['?', 'Warm', '?', '?', '?', '?']
+['?', '?', '?', '?', '?', '?']
+['?', '?', '?', '?', '?', 'Same']
+
+----------------------------------------
+Example: ['Sunny', 'Warm', 'High', 'Strong', 'Cool', 'Change']
+Target: Yes
+Specific Boundary S:
+['Sunny', 'Warm', '?', 'Strong', '?', '?']
+General Boundary G:
+['Sunny', '?', '?', '?', '?', '?']
+['?', 'Warm', '?', '?', '?', '?']
+['?', '?', '?', '?', '?', '?']
+
+========================================
+FINAL VERSION SPACE
+========================================
+
+Specific Boundary (S):
+['Sunny', 'Warm', '?', 'Strong', '?', '?']
+
+General Boundary (G):
+['Sunny', '?', '?', '?', '?', '?']
+['?', 'Warm', '?', '?', '?', '?']
+['?', '?', '?', '?', '?', '?']
