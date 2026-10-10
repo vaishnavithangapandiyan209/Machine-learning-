@@ -1,0 +1,151 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.datasets import load_iris
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+
+# 1. Load the Iris dataset
+iris = load_iris()
+X = iris.data
+y = iris.target
+
+# One-hot encode target classes
+Y = np.eye(3)[y]
+
+# 2. Split dataset into training and testing sets
+X_train, X_test, Y_train, Y_test, y_train, y_test = train_test_split(
+    X, Y, y, test_size=0.2, random_state=42, stratify=y
+)
+
+# 3. Normalize input features
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)
+X_test = scaler.transform(X_test)
+
+
+# 4. Define the Artificial Neural Network
+class ANN:
+    def __init__(self, input_size, hidden_size, output_size, lr=0.1):
+        np.random.seed(42)
+
+        self.W1 = np.random.randn(input_size, hidden_size) * np.sqrt(2 / input_size)
+        self.b1 = np.zeros((1, hidden_size))
+
+        self.W2 = np.random.randn(hidden_size, output_size) * np.sqrt(1 / hidden_size)
+        self.b2 = np.zeros((1, output_size))
+
+        self.lr = lr
+        self.losses = []
+
+    def sigmoid(self, z):
+        z = np.clip(z, -500, 500)
+        return 1 / (1 + np.exp(-z))
+
+    def forward(self, X):
+        self.Z1 = X @ self.W1 + self.b1
+        self.A1 = np.maximum(0, self.Z1)  # ReLU activation
+
+        self.Z2 = self.A1 @ self.W2 + self.b2
+        self.A2 = self.sigmoid(self.Z2)
+
+        # Softmax for multiclass classification
+        exp_z = np.exp(self.Z2 - np.max(self.Z2, axis=1, keepdims=True))
+        self.A2 = exp_z / np.sum(exp_z, axis=1, keepdims=True)
+
+        return self.A2
+
+    def train(self, X, Y, epochs=2000):
+        m = X.shape[0]
+        eps = 1e-12
+
+        for epoch in range(epochs):
+            # Forward propagation
+            output = self.forward(X)
+
+            # Cross-entropy loss
+            loss = -np.mean(np.sum(Y * np.log(output + eps), axis=1))
+            self.losses.append(loss)
+
+            # Backpropagation
+            dZ2 = (output - Y) / m
+            dW2 = self.A1.T @ dZ2
+            db2 = np.sum(dZ2, axis=0, keepdims=True)
+
+            dA1 = dZ2 @ self.W2.T
+            dZ1 = dA1 * (self.Z1 > 0)
+            dW1 = X.T @ dZ1
+            db1 = np.sum(dZ1, axis=0, keepdims=True)
+
+            # Update weights and biases
+            self.W2 -= self.lr * dW2
+            self.b2 -= self.lr * db2
+            self.W1 -= self.lr * dW1
+            self.b1 -= self.lr * db1
+
+            if (epoch + 1) % 200 == 0:
+                print(f"Epoch {epoch + 1}, Loss: {loss:.4f}")
+
+    def predict(self, X):
+        return np.argmax(self.forward(X), axis=1)
+
+
+# 5. Create and train the ANN
+model = ANN(input_size=4, hidden_size=10, output_size=3, lr=0.1)
+model.train(X_train, Y_train, epochs=2000)
+
+# 6. Test the network
+y_pred = model.predict(X_test)
+
+print("\nTest Accuracy: {:.2f}%".format(
+    accuracy_score(y_test, y_pred) * 100
+))
+
+print("\nConfusion Matrix:")
+print(confusion_matrix(y_test, y_pred))
+
+print("\nClassification Report:")
+print(classification_report(
+    y_test, y_pred, target_names=iris.target_names
+))
+
+# 7. Plot training loss
+plt.plot(model.losses)
+plt.xlabel("Epoch")
+plt.ylabel("Cross-Entropy Loss")
+plt.title("ANN Training using Backpropagation")
+plt.grid(True)
+plt.show()
+
+
+OUTPUT
+
+Epoch 200, Loss: 0.1215
+Epoch 400, Loss: 0.0731
+Epoch 600, Loss: 0.0580
+Epoch 800, Loss: 0.0509
+Epoch 1000, Loss: 0.0468
+Epoch 1200, Loss: 0.0443
+Epoch 1400, Loss: 0.0425
+Epoch 1600, Loss: 0.0411
+Epoch 1800, Loss: 0.0401
+Epoch 2000, Loss: 0.0394
+
+Test Accuracy: 96.67%
+
+Confusion Matrix:
+[[10  0  0]
+ [ 0  9  1]
+ [ 0  0 10]]
+
+Classification Report:
+              precision    recall  f1-score   support
+
+      setosa       1.00      1.00      1.00        10
+  versicolor       1.00      0.90      0.95        10
+   virginica       0.91      1.00      0.95        10
+
+    accuracy                           0.97        30
+   macro avg       0.97      0.97      0.97        30
+weighted avg       0.97      0.97      0.97        30
+
